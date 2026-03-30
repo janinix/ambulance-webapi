@@ -21,3 +21,4 @@ secretGenerator:
   literals:
   - username=admin
   - password=admin
+  
