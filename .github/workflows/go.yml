@@ -9,14 +9,15 @@ on:
     tags: [ "v1*" ]
   pull_request:
     branches: [ "main" ]
-  workflow_dispatch:  {} # allow manually trigger workflow
-
+  workflow_dispatch:  {}
+    
 jobs:
 
   build:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
+
     - name: Get Go version from go.mod
       id: get_go_version
       run: echo "go_version=$(grep -m1 'go ' go.mod | awk '{print $2}')" >> $GITHUB_OUTPUT
@@ -32,40 +33,13 @@ jobs:
         generator: go-gin-server
         input: api/ambulance-wl.openapi.yaml
         additional-properties: apiPath=internal/ambulance_wl,packageName=ambulance_wl,interfaceOnly=true
-    - name: openapi-generator-generate-action
-      # You may pin to the exact commit or the version.
-      # uses: craicoverflow/openapi-generator-generate-action@f5cb8c4751e164eab904995688909966bd1f36eb
-      uses: craicoverflow/openapi-generator-generate-action@v1.2.1
-      with:
-        # The name of the generator to use
-        generator: 
-        # Specify which version of openapi-generator to use
-        version: # optional, default is latest
-        # OpenAPI specification file to use as the source for generation
-        input: 
-        # The output directory of the generated code
-        output: # optional, default is .
-        # Package name
-        package-name: # optional
-        # Git repository name
-        git-repo-id: # optional
-        # The owner of the Git repo
-        git-user-id: # optional
-        # Provide a config object of additional properties
-        additional-properties: # optional
-        # Directory of the templates used to generate code
-        template: # optional
-        # Pass a custom OpenAPI Generator ignore file
-        ignore-file-override: # optional
-        # Config file used to define additional configuration parameters
-        config: # optional
-          
+        
     - name: Build
       run: go build -v ./cmd/ambulance-api-service
-
+      
     - name: Test
       run: go test -v ./...
-      
+
     - name: Docker Setup QEMU
       uses: docker/setup-qemu-action@v3.6.0
 
@@ -76,7 +50,7 @@ jobs:
       id: meta
       uses: docker/metadata-action@v5.7.0
       with:
-        images: janinix/ambulance-wl-webapi
+        images: xpartla/ambulance-wl-webapi
         tags: |
           type=schedule
           type=ref,event=branch
