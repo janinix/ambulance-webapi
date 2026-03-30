@@ -1,0 +1,22 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+- deployment.yaml
+- service.yaml
+
+configMapGenerator:
+  - name: xmarecek-ambulance-webapi-mongodb-init
+    files:
+      - params/init-db.js
+  - name: xmarecek-ambulance-webapi-config
+    literals:
+      - database=xmarecek-ambulance
+      - collection=ambulance
+patchesJson6902:
+- target:
+    group: apps
+    version: v1
+    kind: Deployment
+    name: xmarecek-ambulance-webapi
+  path: patches/webapi.deployment.yaml
