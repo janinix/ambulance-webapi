@@ -11,19 +11,53 @@ import (
     "go.opentelemetry.io/otel"
     "go.opentelemetry.io/otel/codes"
     "go.opentelemetry.io/otel/trace"
+    "go.opentelemetry.io/otel/attribute"
+    "go.opentelemetry.io/otel/metric"
 )
 
 type implAmbulanceWaitingListAPI struct {
     logger zerolog.Logger
     tracer trace.Tracer
+    entriesCreatedCounter metric.Int64Counter
+    entriesUpdatedCounter metric.Int64Counter
+    entriesDeletedCounter metric.Int64Counter
 }
 
 func NewAmbulanceWaitingListApi() AmbulanceWaitingListAPI {
-    return &implAmbulanceWaitingListAPI{
-        logger: log.With().Str("component", "ambulance_waiting_list_api").Logger(),
-        tracer: otel.Tracer("ambulance-wl"),
+      meter := otel.Meter("ambulance-wl")
+
+    entriesCreatedCounter, err := meter.Int64Counter(
+        "ambulance_waiting_list_entries_created_total",
+        metric.WithDescription("Total number of entries created in the waiting list API"),
+    )
+
+    if err != nil {
+        panic(err)
     }
-}
+
+    entriesUpdatedCounter, err := meter.Int64Counter(
+        "ambulance_waiting_list_entries_updated_total",
+        metric.WithDescription("Total number of entries updated in the waiting list API"),
+    )
+    if err != nil {
+        panic(err)
+    }
+
+    entriesDeletedCounter, err := meter.Int64Counter(
+        "ambulance_waiting_list_entries_deleted_total",
+        metric.WithDescription("Total number of entries deleted in the waiting list API"),
+    )
+    if err != nil {
+        panic(err)
+    }
+        return &implAmbulanceWaitingListAPI{
+            logger: log.With().Str("component", "ambulance_waiting_list_api").Logger(),
+            tracer: otel.Tracer("ambulance-wl"),
+            entriesCreatedCounter: entriesCreatedCounter,
+            entriesUpdatedCounter: entriesUpdatedCounter,
+            entriesDeletedCounter: entriesDeletedCounter,
+        }
+    }
 
 func (o implAmbulanceWaitingListAPI) CreateWaitingListEntry(c *gin.Context) {
     ctx, span := o.tracer.Start(c.Request.Context(), "CreateWaitingListEntry")
@@ -100,6 +134,13 @@ func (o implAmbulanceWaitingListAPI) CreateWaitingListEntry(c *gin.Context) {
         Str("entry-id", ambulance.WaitingList[entryIndx].Id).
         Msg("Succesfully created patient entry")
         span.SetStatus(codes.Ok, "Succesfully created patient entry")
+        o.entriesCreatedCounter.Add(
+            c.Request.Context(), 1,
+            metric.WithAttributes(
+                attribute.String("ambulance_id", ambulance.Id),
+                attribute.String("ambulance_name", ambulance.Name),
+        ),
+    )
         return ambulance, ambulance.WaitingList[entryIndx], http.StatusOK
     })
 }
@@ -139,6 +180,13 @@ func (o implAmbulanceWaitingListAPI) GetWaitingListEntries(c *gin.Context) {
             result = []WaitingListEntry{}
         }
         // return nil ambulance - no need to update it in db
+        o.entriesDeletedCounter.Add(
+            c.Request.Context(), 1,
+            metric.WithAttributes(
+                attribute.String("ambulance_id", ambulance.Id),
+                attribute.String("ambulance_name", ambulance.Name),
+            ),
+            )
         return nil, result, http.StatusOK
     })
 }
@@ -219,6 +267,13 @@ func (o implAmbulanceWaitingListAPI) UpdateWaitingListEntry(c *gin.Context) {
         }
 
         ambulance.reconcileWaitingList()
+        o.entriesUpdatedCounter.Add(
+            c.Request.Context(), 1,
+            metric.WithAttributes(
+                attribute.String("ambulance_id", ambulance.Id),
+                attribute.String("ambulance_name", ambulance.Name),
+            ),
+        )
         return ambulance, ambulance.WaitingList[entryIndx], http.StatusOK
     })
 }
